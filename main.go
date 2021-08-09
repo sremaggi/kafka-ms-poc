@@ -5,41 +5,42 @@ import (
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/gin-gonic/gin"
+	"kafka-producer/src/models"
 )
 
 
-type EmployeeEvent struct {
-	Name string`json:"name"`
-	Surname string `json:"surname"`
-	Email string `json:"email"`
-}
+
+
 
 func main() {
 	r := gin.Default()
-	r.POST("/employee", func(c *gin.Context) {
-		var employee EmployeeEvent
-		c.BindJSON(&employee)
+	r.POST("/", func(c *gin.Context) {
+		var event models.Request
+		c.BindJSON(&event)
 
-		fmt.Printf("EMPLOYEE to store: %v\n", employee)
 
-		p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": "127.0.0.1:9092"})
+		p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": event.Brokers})
 		if err != nil {
-			panic(err)
+			fmt.Printf("Producer error: %v\n", err)
 		}
 		fmt.Printf("Created Producer %v\n", p)
 		defer p.Close()
-		b, err := json.Marshal(employee)
+
+		msgJSON, err := json.Marshal(event.ProducerMessage.Message)
 		if err != nil {
 			fmt.Printf("Error: %s", err)
 
 		}
 		deliveryChan := make(chan kafka.Event)
-		topic := "trabajadores_test"
-
+		fmt.Println("MESSAGGE::: ",string(msgJSON))
 		err = p.Produce(&kafka.Message{
-			TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
-			Value:          []byte(string(b)),
-			Headers:        []kafka.Header{{Key: "myTestHeader", Value: []byte("header values are binary")}},
+			TopicPartition: kafka.TopicPartition{Topic: &event.Topic, Partition: kafka.PartitionAny},
+			Key: []byte(event.ProducerMessage.Key),
+			Value:          []byte(string(msgJSON)),
+			Headers:        []kafka.Header{kafka.Header{
+				Value: []byte(event.ProducerMessage.Headers.Value),
+				Key: event.ProducerMessage.Headers.Key,
+			}},
 		}, deliveryChan)
 
 		e := <-deliveryChan
