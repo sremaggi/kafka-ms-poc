@@ -14,7 +14,7 @@ import (
 
 func main() {
 	r := gin.Default()
-	r.POST("/", func(c *gin.Context) {
+	r.POST("/:topic", func(c *gin.Context) {
 		var event models.Request
 		c.BindJSON(&event)
 
@@ -33,8 +33,9 @@ func main() {
 		}
 		deliveryChan := make(chan kafka.Event)
 		fmt.Println("MESSAGGE::: ",string(msgJSON))
+		topic := c.Param("topic")
 		err = p.Produce(&kafka.Message{
-			TopicPartition: kafka.TopicPartition{Topic: &event.Topic, Partition: kafka.PartitionAny},
+			TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
 			Key: []byte(event.ProducerMessage.Key),
 			Value:          []byte(string(msgJSON)),
 			Headers:        []kafka.Header{kafka.Header{
